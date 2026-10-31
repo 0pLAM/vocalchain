@@ -1,0 +1,38 @@
+name: Build Plugins (Windows VST3)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          $bd = (Get-ChildItem -Recurse -Filter CMakeLists.txt | Where-Object { Select-String -Path $_.FullName -Pattern 'project\(BeatDrop' -Quiet } | Select-Object -First 1).DirectoryName
+          $rc = (Get-ChildItem -Recurse -Filter CMakeLists.txt | Where-Object { Select-String -Path $_.FullName -Pattern 'project\(RapChain' -Quiet } | Select-Object -First 1).DirectoryName
+          Write-Host "BeatDrop: $bd"
+          Write-Host "RapChain: $rc"
+          cmake -S $bd -B build-bd -A x64
+          cmake -S $rc -B build-rc -A x64
+
+      - name: Build BeatDrop
+        run: cmake --build build-bd --config Release --target BeatDrop_VST3 --parallel
+
+      - name: Build RapChain
+        run: cmake --build build-rc --config Release --target RapChain_VST3 --parallel
+
+      - name: Upload BeatDrop
+        uses: actions/upload-artifact@v4
+        with:
+          name: BeatDrop-VST3-Windows
+          path: build-bd/BeatDrop_artefacts/Release/VST3/BeatDrop.vst3
+
+      - name: Upload RapChain
+        uses: actions/upload-artifact@v4
+        with:
+          name: RapChain-VST3-Windows
+          path: build-rc/RapChain_artefacts/Release/VST3/RapChain.vst3
