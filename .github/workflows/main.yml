@@ -10,29 +10,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure
+      - name: Configure and build
         run: |
           $bd = (Get-ChildItem -Recurse -Filter CMakeLists.txt | Where-Object { Select-String -Path $_.FullName -Pattern 'project\(BeatDrop' -Quiet } | Select-Object -First 1).DirectoryName
           $rc = (Get-ChildItem -Recurse -Filter CMakeLists.txt | Where-Object { Select-String -Path $_.FullName -Pattern 'project\(RapChain' -Quiet } | Select-Object -First 1).DirectoryName
           Write-Host "BeatDrop: $bd"
           Write-Host "RapChain: $rc"
-          cmake -S $bd -B build-bd -A x64
-          cmake -S $rc -B build-rc -A x64
-
-      - name: Build BeatDrop
-        run: cmake --build build-bd --config Release --target BeatDrop_VST3 --parallel
-
-      - name: Build RapChain
-        run: cmake --build build-rc --config Release --target RapChain_VST3 --parallel
+          if (-not $bd -and -not $rc) { Write-Host "Kein Plugin im Repo gefunden"; exit 1 }
+          if ($bd) {
+            cmake -S $bd -B build-bd -A x64
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            cmake --build build-bd --config Release --target BeatDrop_VST3 --parallel
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          if ($rc) {
+            cmake -S $rc -B build-rc -A x64
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+            cmake --build build-rc --config Release --target RapChain_VST3 --parallel
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
 
       - name: Upload BeatDrop
         uses: actions/upload-artifact@v4
         with:
           name: BeatDrop-VST3-Windows
           path: build-bd/BeatDrop_artefacts/Release/VST3/BeatDrop.vst3
+          if-no-files-found: ignore
 
       - name: Upload RapChain
         uses: actions/upload-artifact@v4
         with:
           name: RapChain-VST3-Windows
           path: build-rc/RapChain_artefacts/Release/VST3/RapChain.vst3
+          if-no-files-found: ignore
